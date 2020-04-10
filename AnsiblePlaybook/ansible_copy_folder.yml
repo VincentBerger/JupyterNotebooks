@@ -6,6 +6,7 @@
     # Change this to the number of copies you want
     capacity: 40
     prefix: /home
+    ref: student0
     workshop: OVWorkshop
     dir: TSS
     myrange: 1-{{capacity}}
@@ -36,19 +37,26 @@
     # copy student0 n times to student1...studentn
     - name: copy master folder
       copy:
-        src: "{{prefix}}/student0/{{dir}}/{{workshop}}/"
+        src: "{{prefix}}/{{ref}}/{{dir}}/{{workshop}}/"
         dest: "{{prefix}}/student{{item}}/{{dir}}/{{workshop}}"
       with_sequence: "{{myrange}}"
 
     # find all notebooks
     - name: find jupyter notebooks
       find:
-        paths: "{{prefix}}/student0/{{dir}}/{{workshop}}"
+        paths: "{{prefix}}/{{ref}}/{{dir}}/{{workshop}}"
         recurse: yes
         patterns: "*.ipynb"
         excludes: '*-checkpoint.ipynb'
       register: notebooks
 
+    - name: Cleanup Outputs, metadata and execution_count
+      shell: |
+        jq '(.cells[] | select(has("outputs")) | .outputs) = []
+        | (.cells[] | select(has("execution_count")) | .execution_count) = null
+        | .cells[].metadata = {}' "{{ item.path }}" | sponge "{{ item.path }}"
+      with_items: "{{ notebooks.files }}"
+ 
     # - name: display
     #   debug:
     #     msg: "{{item.0.path | regex_replace('/student0/','/student' + item.1|string + '/')}}"
@@ -58,7 +66,7 @@
     # Replace $$I with Student ID in notebooks
     - name: student id substitution
       replace:
-          path: "{{item.0.path | regex_replace('/student0/','/student' + item.1|string + '/')}}"
+          path: "{{item.0.path | regex_replace('/'+ref+'/','/student' + item.1|string + '/')}}"
           regexp: \$\$I
           replace: "{{item.1}}"
       with_nested: 
@@ -73,7 +81,7 @@
       #     - \$\${{item.1.varname}}
       #     - "{{ item.1.varsubst[item.2|string] }} "
       replace:
-        path: "{{item.0.path | regex_replace('/student0/','/student' + item.2|string + '/')}}"
+        path: "{{item.0.path | regex_replace('/'+ref+'/','/student' + item.2|string + '/')}}"
         regexp: \$\${{item.1.varname}}
         replace: "{{ item.1.varsubst[item.2|string] }}"
       with_nested: 
