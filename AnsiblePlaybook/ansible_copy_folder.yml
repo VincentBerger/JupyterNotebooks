@@ -34,13 +34,6 @@
         state: absent
       with_sequence: "{{myrange}}"
 
-    # copy student0 n times to student1...studentn
-    - name: copy master folder
-      copy:
-        src: "{{prefix}}/{{ref}}/{{dir}}/{{workshop}}/"
-        dest: "{{prefix}}/student{{item}}/{{dir}}/{{workshop}}"
-      with_sequence: "{{myrange}}"
-
     # find all notebooks
     - name: find jupyter notebooks
       find:
@@ -57,6 +50,13 @@
         | .cells[].metadata = {}' "{{ item.path }}" | sponge "{{ item.path }}"
       with_items: "{{ notebooks.files }}"
  
+    # copy student0 n times to student1...studentn
+    - name: copy master folder
+      copy:
+        src: "{{prefix}}/{{ref}}/{{dir}}/{{workshop}}/"
+        dest: "{{prefix}}/student{{item}}/{{dir}}/{{workshop}}"
+      with_sequence: "{{myrange}}"
+
     # - name: display
     #   debug:
     #     msg: "{{item.0.path | regex_replace('/student0/','/student' + item.1|string + '/')}}"
