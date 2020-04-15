@@ -55,6 +55,8 @@
       copy:
         src: "{{prefix}}/{{ref}}/{{dir}}/{{workshop}}/"
         dest: "{{prefix}}/student{{item}}/{{dir}}/{{workshop}}"
+        owner: student{{item}}
+        group: jupyter
       with_sequence: "{{myrange}}"
 
     # - name: display
@@ -90,10 +92,3 @@
         - "{{range(start|int, end|int +1, 1) | list }}"
       when: substitutions is defined
 
-    - name: change owner
-      file:
-        path: "{{prefix}}/student{{item}}/{{dir}}/{{workshop}}"
-        owner: "{{item}}"
-        group: jupyter
-        recurse: yes
-      with_sequence: "{{myrange}}"
