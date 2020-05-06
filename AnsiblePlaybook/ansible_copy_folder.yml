@@ -15,9 +15,6 @@
     end: "{% if parse|length > 1 %}{{parse[1]}}{% else %}{{start}}{% endif %}"
 
   tasks: 
-    - debug:
-        msg: myrange is {{myrange}}, start is {{start}}, end is {{end}}
-
     - fail:
         msg: workshop variable is empty ! Fat fingers ?!?
       when: workshop|length == 0
