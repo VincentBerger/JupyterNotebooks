@@ -1,0 +1,5 @@
+$ovipaddr = "$$OVIP"
+$sht = "$$SHT"
+$server = "$$SRVNAME"
+"Variables defined successfully"
+"Your Server Hardware Type is `"$sht`", the server you can test with is `"$server`""
