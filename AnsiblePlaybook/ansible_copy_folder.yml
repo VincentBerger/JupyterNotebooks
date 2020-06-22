@@ -4,7 +4,7 @@
   connection: local
   vars:
     # Change this to the number of copies you want
-    capacity: 40
+    capacity: 0
     prefix: /home
     ref: student0
     workshop: OVWorkshop
