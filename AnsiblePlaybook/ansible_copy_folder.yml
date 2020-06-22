@@ -13,6 +13,7 @@
     parse: "{{ myrange.split('-') }}"
     start: "{{parse[0]}}"
     end: "{% if parse|length > 1 %}{{parse[1]}}{% else %}{{start}}{% endif %}"
+    files: []
 
   tasks: 
     - fail:
@@ -39,9 +40,15 @@
       find:
         paths: "{{prefix}}/{{ref}}/{{dir}}/{{workshop}}"
         recurse: yes
-        patterns: "*.ipynb"
+        patterns: 
+          - "*.ipynb"
+          - "Variables.ps1"
         excludes: '*-checkpoint.ipynb'
       register: notebooks
+
+    - name: debug
+      debug: 
+        msg: "{{notebooks.files}}"
 
     - name: Cleanup Outputs, metadata and execution_count
       shell: |
@@ -49,14 +56,15 @@
         | (.cells[] | select(has("execution_count")) | .execution_count) = null
         | .cells[].metadata = {}' "{{ item.path }}" | sponge "{{ item.path }}"
       with_items: "{{ notebooks.files }}"
+      when: item.path is not search("Variables.ps1")
  
     # copy student0 n times to student1...studentn
     - name: copy master folder
       copy:
         src: "{{prefix}}/{{ref}}/{{dir}}/{{workshop}}/"
         dest: "{{prefix}}/student{{item}}/{{dir}}/{{workshop}}"
-        owner: student{{item}}
-        group: jupyter
+#        owner: student{{item}}
+#        group: jupyter
       loop: "{{range(start|int, end|int +1, 1) | list }}"
 
     # - name: display
