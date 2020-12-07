@@ -1,12 +1,13 @@
-# Playbook expects to have a Student0 folder in the directory where the playbook is run
 - hosts: localhost
   gather_facts: false
   connection: local
   vars:
     # Change this to the number of copies you want
     capacity: 0
-    prefix: /home
-    ref: student0
+    srcprefix: /home
+    dstprefix: /student
+#    ref: student0
+    playbk: /home/jupyter/ansible-jupyter
     workshop: OVWorkshop
     dir: TSS
     myrange: 1-{{capacity}}
@@ -22,29 +23,49 @@
 
     - name: check variables file exists
       stat:
-        path: variables_{{workshop}}.yml
+        path: "{{ playbk }}/variables_{{workshop}}.yml"
       register: variables_file
     - include_vars:
-        file: variables_{{workshop}}.yml
+        file: "{{ playbk }}/variables_{{workshop}}.yml"
       when: variables_file.stat.exists
   
+    - name: check password file exists
+      stat:
+        path: "{{ playbk }}/variables_{{workshop}}_pass.yml"
+      register: pass_file
+    - include_vars:
+        file: "{{ playbk }}/variables_{{workshop}}_pass.yml"
+      when: pass_file.stat.exists
+  
+    - fail:
+        msg: PASSSTU variable found but student range > 1 start = {{start}}  end = {{end}}
+      when: PASSSTU is defined and start != end
+
     # remove any previously created student1/ to studentn/
     - name: remove student dirs
       file: 
-        path: "{{prefix}}/student{{item}}/{{dir}}/{{workshop}}"
+        path: "{{dstprefix}}/student{{item}}/{{dir}}/{{workshop}}"
         state: absent
       loop: "{{range(start|int, end|int +1, 1) | list }}"
 
     # find all notebooks
     - name: find jupyter notebooks
       find:
-        paths: "{{prefix}}/{{ref}}/{{dir}}/{{workshop}}"
+        paths: "{{srcprefix}}/student0/{{dir}}/{{workshop}}"
         recurse: yes
         patterns: 
           - "*.ipynb"
           - "Variables.ps1"
         excludes: '*-checkpoint.ipynb'
       register: notebooks
+
+    - name: find python scripts
+      find:
+        paths: "{{srcprefix}}/student0/{{dir}}/{{workshop}}"
+        recurse: yes
+        patterns: 
+          - "*.py"
+      register: python_scripts
 
     - name: debug
       debug: 
@@ -60,25 +81,41 @@
  
     # copy student0 n times to student1...studentn
     - name: copy master folder
+      become: yes
+      become_user: root
       copy:
-        src: "{{prefix}}/{{ref}}/{{dir}}/{{workshop}}/"
-        dest: "{{prefix}}/student{{item}}/{{dir}}/{{workshop}}"
-#        owner: student{{item}}
-#        group: jupyter
+        src: "{{srcprefix}}/student0/{{dir}}/{{workshop}}/"
+        dest: "{{dstprefix}}/student{{item}}/{{dir}}/{{workshop}}"
+        owner: student{{item}}
+        group: student{{item}}
+        mode: u+rwx
       loop: "{{range(start|int, end|int +1, 1) | list }}"
 
-    # - name: display
-    #   debug:
-    #     msg: "{{item.0.path | regex_replace('/student0/','/student' + item.1|string + '/')}}"
-    #   with_nested: 
-    #     - "{{notebooks.files}}"
-    #     - "{{range(1, capacity +1, 1) | list }}"
     # Replace $$I with Student ID in notebooks
-    - name: student id substitution
+    - name: student id substitution in notebooks
       replace:
-          path: "{{item.0.path | regex_replace('/'+ref+'/','/student' + item.1|string + '/')}}"
+          path: "{{item.0.path | regex_replace(srcprefix + '/student0/', dstprefix + '/student' + item.1|string + '/')}}"
           regexp: \$\$I
           replace: "{{item.1}}"
+      with_nested: 
+        - "{{notebooks.files}}"
+        - "{{range(start|int, end|int +1, 1) | list }}"
+
+    # Replace $$I with Student ID in Python scripts
+    - name: student id substitution in Python scripts
+      replace:
+          path: "{{item.0.path | regex_replace(srcprefix + '/student0/', dstprefix + '/student' + item.1|string + '/')}}"
+          regexp: \$\$I
+          replace: "{{item.1}}"
+      with_nested: 
+        - "{{python_scripts.files}}"
+        - "{{range(start|int, end|int +1, 1) | list }}"
+
+    - name: password substitution
+      replace:
+          path: "{{item.0.path | regex_replace(srcprefix + '/student0/', dstprefix + '/student' + item.1|string + '/')}}"
+          regexp: \$\$PASSSTU
+          replace: "{{PASSSTU}}"
       with_nested: 
         - "{{notebooks.files}}"
         - "{{range(start|int, end|int +1, 1) | list }}"
@@ -91,7 +128,7 @@
       #     - \$\${{item.1.varname}}
       #     - "{{ item.1.varsubst[item.2|string] }} "
       replace:
-        path: "{{item.0.path | regex_replace('/'+ref+'/','/student' + item.2|string + '/')}}"
+        path: "{{item.0.path | regex_replace(srcprefix + '/student0/', dstprefix + '/student' + item.2|string + '/')}}"
         regexp: \$\${{item.1.varname}}
         replace: "{{ item.1.varsubst[item.2|string] }}"
       with_nested: 
